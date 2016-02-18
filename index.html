@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta charset="utf-8" />
+    <title>CQRS &amp; Event Sourcing</title>
+    <meta name="description" content="CQRS &amp; Event Sourcing Talk" />
+    <meta name="author" content="Sascha-Oliver Prolic" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link href='https://fonts.googleapis.com/css?family=Cabin+Sketch' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="bower_components/reveal.js/css/reveal.min.css">
+    <link rel="stylesheet" href="bower_components/reveal.js/css/theme/default.css" id="theme">
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="bower_components/reveal.js/lib/css/zenburn.css" id="highlight-theme">
+    <!-- If the query includes 'print-pdf', use the PDF print sheet -->
+    <script>
+        document.write( '<link rel="stylesheet" href="bower_components/reveal.js/css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+    </script>
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+    <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<section>
+    <h2>
+        Hi!
+    </h2>
+</section>
+
+<section>
+    <h2>
+        Sascha-Oliver Prolic<br>
+    </h2>
+</section>
+
+<section>
+    <h2>
+        <img
+            src="assets/img/zf-logo.svg"
+            alt="Zend Framework 2"
+            width="150px"
+            style="margin: -8px;"
+        />
+        contributor
+    </h2>
+</section>
+
+<section>
+    <h2>
+        <img
+            src="assets/img/prooph-components-open-source-php-library.png"
+            alt="Prooph components"
+            style="margin: -8px;"
+        />
+        maintainer
+    </h2>
+</section>
+
+<section>
+    <section>
+        <h2>Current projects</h2>
+        <p>
+            <a style="color: rgb(0,0,0)" target="_blank" href="https://github.com/prooph/event-store">Prooph Event Store</a>,
+            <a style="color: rgb(0,0,0)" target="_blank" href="https://github.com/prooph/service-bus">Prooph Service-Bus</a>,
+            <a style="color: rgb(0,0,0)" target="_blank" href="https://github.com/prooph/snapshotter">Prooph Snapshotter</a>,
+            <a style="color: rgb(0,0,0)" target="_blank" href="https://github.com/prooph/event-sourcing">Prooph Event Sourcing</a>,
+            <a style="color: rgb(0,0,0)" target="_blank" href="https://github.com/prooph/psr7-middleware">Prooph PSR-7 middleware</a>,
+            <a style="color: rgb(0,0,0)" target="_blank" href="https://github.com/prooph/service-bus-zfc-rbac-bridge">Service-Bus ZFC-Rbac Bridge</a>,
+            <a style="color: rgb(0,0,0)" target="_blank" href="https://github.com/prolic/HumusAmqp">HumusAmqp</a>,
+            <a style="color: rgb(0,0,0)" target="_blank" href="https://github.com/prolic/PhpDisruptor">PhpDisruptor</a>
+        </p>
+    </section>
+</section>
+
+<section>
+    <h1>CQRS &amp; Event Sourcing</h1>
+</section>
+
+<section>
+    <h1>CQRS ???</h1>
+</section>
+
+<section>
+    <h3 class="left" style="margin-left: 30%;">C ommand<br>Q uery<br>R esponsibility<br>S egregation</h3>
+</section>
+
+<section>
+    <h3>CRUD</h3>
+    <img src="assets/img/crud.png"/>
+</section>
+
+<section>
+    <h3>CQRS</h3>
+    <img src="assets/img/cqrs.png" height="600"/>
+</section>
+
+<section>
+    <h2>Command</h2>
+    <p class="fragment" data-fragment-index="1">Commands are value objects</p>
+    <p class="fragment" data-fragment-index="2">Commands do not return anything</p>
+</section>
+
+<section>
+    <pre><code class="php">final class ChangeUserName {
+    private $userId;
+    private $userName;
+
+    public function __construct($userId, $userName) {
+        $this->userId = $userId;
+        $this->userName = $userName;
+    }
+
+    public function userId() { return $this->userId; }
+    public function userName() { return $this->userName; }
+}</code></pre>
+</section>
+
+<section>
+    <h2>How are commands<br>executed?</h2>
+</section>
+
+<section>
+    <h2>Command-Bus</h2>
+</section>
+
+<section>
+    <pre><code class="php">use Prooph\ServiceBus\CommandBus;
+use Prooph\ServiceBus\Plugin\Router\CommandRouter;
+
+$commandBus = new CommandBus();
+$router = new CommandRouter();
+
+$router->route(ChangeUserName::class)
+    ->to(ChangeUserNameHandler::class);
+
+$commandBus->utilize($router);
+</code></pre>
+</section>
+
+<section>
+    <pre><code class="php">$command = new ChangeUsername($userId, $userName);
+
+$commandBus->dispatch($command);</code></pre>
+</section>
+
+<section>
+    <pre><code class="php">final class ChangeUserNameHandler {
+
+    public function __invoke(ChangeUserName $command) {
+        $user = $this->find($command->userId());
+        $user->changeUserName($command->userName());
+    }
+
+    private function find($userId) {
+        // code
+    }
+}</code></pre>
+</section>
+
+<section>
+    <h2>Pros</h2>
+    <p class="fragment" data-fragment-index="1">Code with intent</p>
+    <p class="fragment" data-fragment-index="2">Scale reads and writes independent from each other</p>
+    <p class="fragment" data-fragment-index="3">Code with intent</p>
+</section>
+
+<section>
+    <h2>Cons</h2>
+    <p class="fragment" data-fragment-index="1">More boilerplate</p>
+    <p class="fragment" data-fragment-index="2">Adds complexity</p>
+</section>
+
+<section>
+    <h2>Event-Sourcing</h2>
+</section>
+
+<section>
+    <h2>Store all changes of<br>application state as<br>a series of events.</h2>
+</section>
+
+<section>
+    <h2>Example: Todo</h2>
+    <p class="fragment event" data-fragment-index="0">TodoWasPosted</p>
+    <p class="fragment event" data-fragment-index="1">DeadlineWasAddedToTodo</p>
+    <p class="fragment event" data-fragment-index="2">TodoWasMarkedAsDone</p>
+    <p class="fragment event" data-fragment-index="3">TodoWasReopened</p>
+    <p class="fragment event" data-fragment-index="4">TodoWasMarkedAsDone</p>
+</section>
+
+<section>
+    <h2>Aggregates</h2>
+    <ul>
+        <li class="fragment" data-fragment-index="0">
+            <u>Isolated</u> domain models running business<br>logic through events
+        </li>
+    </ul>
+</section>
+
+<section>
+    <pre><code class="php">final class Todo extends AggregateRoot {
+    // properties
+
+    public static function post(
+        $text,
+        UserId $assigneeId,
+        TodoId $todoId
+    ) {
+        $self = new self();
+        $self->assertText($text);
+        $self->recordThat(TodoWasPosted::byUser(
+            $assigneeId,
+            $text,
+            $todoId,
+            TodoStatus::open()
+        ));
+        return $self;
+    }
+
+    // more methods
+}</code></pre>
+</section>
+
+<section>
+    <pre><code class="php">final class Todo extends AggregateRoot {
+    // ...
+
+    public function reopenTodo() {
+        if (!$this->status->isDone()) {
+            throw Exception\CannotReopenTodo::notMarkedDone($this);
+        }
+        $this->recordThat(TodoWasReopened::withStatus(
+            $this->todoId,
+            TodoStatus::fromString(TodoStatus::OPEN)
+        ));
+    }
+}</code></pre>
+</section>
+
+<section>
+    <pre><code class="php">final class Todo extends AggregateRoot {
+    // ...
+
+    protected function whenTodoWasPosted(TodoWasPosted $event)
+    {
+        $this->todoId = $event->todoId();
+        $this->assigneeId = $event->assigneeId();
+        $this->text = $event->text();
+        $this->status = $event->todoStatus();
+    }
+}</code></pre>
+</section>
+
+<section>
+    <pre><code class="php">final class Todo extends AggregateRoot {
+    // ...
+
+    protected function whenTodoWasMarkedAsDone(TodoWasMarkedAsDone $event)
+    {
+        $this->status = $event->newStatus();
+    }
+}</code></pre>
+</section>
+
+<section>
+    <pre><code class="php">abstract class AggregateRoot {
+    protected $version = 0;
+    protected $recordedEvents = [];
+
+    protected function recordThat(AggregateChanged $event) {
+        $this->version += 1;
+        $this->recordedEvents[] = $event->withVersion($this->version);
+        $this->apply($event);
+    }
+
+    // more code
+}</code></pre>
+</section>
+
+<section>
+    <pre><code class="php">abstract class AggregateRoot {
+    // ...
+
+    protected function apply(AggregateChanged $e) {
+        $handler = $this->determineEventHandlerMethodFor($e);
+        if (! method_exists($this, $handler)) {
+            throw new \RuntimeException(sprintf(
+                "Missing event handler method %s for aggregate root %s",
+                $handler,
+                get_class($this)
+            ));
+        }
+        $this->{$handler}($e);
+    }
+
+    // more code
+}</code></pre></section>
+
+<section>
+    <h2>Aggregates</h2>
+    <ul>
+        <li>
+            <u>Isolated</u> domain models running business<br>logic through events
+        </li>
+        <li class="fragment" data-fragment-index="1">
+            Reconstitute by re-applying a stream of events
+        </li>
+    </ul>
+</section>
+
+<section>
+    <pre><code class="php">abstract class AggregateRoot {
+    // ...
+
+    protected static function reconstituteFromHistory(\Iterator $historyEvents) {
+        $instance = new static();
+        $instance->replay($historyEvents);
+        return $instance;
+    }
+
+    // more code
+</code></pre>
+</section>
+
+<section>
+    <h2>Event-Store</h2>
+    <img class="fragment" data-fragment-index="1" src="assets/img/command-event-event-store.png"/>
+</section>
+
+<section>
+    <pre><code class="php">$streamName = new StreamName('todo');
+
+$events = new ArrayIterator([
+    $todoWasPosted,
+    $deadlineWasAddedToTodo,
+    $todoWasMarkedAsDone
+]);
+
+$eventStore->beginTransaction();
+$eventStore->create(new Stream($streamName, $events));
+$eventStore->commit();</code></pre>
+</section>
+
+<section>
+    <h2>Projection</h2>
+</section>
+
+<section>
+    <pre><code class="php">final class TodoProjector {
+    // ...
+
+    public function onTodoWasPosted(TodoWasPosted $event) {
+        $this->connection->insert(Table::TODO, [
+            'id' => $event->todoId()->toString(),
+            'assignee_id' => $event->assigneeId()->toString(),
+            'text' => $event->text(),
+            'status' => $event->todoStatus()->toString()
+        ]);
+    }
+
+    // more methods
+}</code></pre>
+</section>
+
+<section>
+    <pre><code class="php">final class TodoProjector {
+    // ...
+
+    public function onTodoWasMarkedAsDone(TodoWasMarkedAsDone $event) {
+        $this->connection->update(Table::TODO,
+            [
+                'status' => $event->newStatus()->toString()
+            ],
+            [
+                'id' => $event->todoId()->toString()
+            ]
+        );
+    }
+}</code></pre>
+</section>
+
+<section>
+    <h2>Event-Sourcing Pros</h2>
+    <p class="fragment" data-fragment-index="1">Append only (very fast)</p>
+    <p class="fragment" data-fragment-index="2">Immutable</p>
+    <p class="fragment" data-fragment-index="3">No joins</p>
+    <p class="fragment" data-fragment-index="4">Complete history</p>
+</section>
+
+<section>
+    <h2>Event-Sourcing Pros</h2>
+    <p class="fragment" data-fragment-index="1">Not really</p>
+    <p class="fragment" data-fragment-index="2">Overkill for simple CRUD apps</p>
+</section>
+
+<section>
+    <h2>Wrapping up</h2>
+    <ul>
+        <li class="fragment" data-fragment-index="1">Use commands</li>
+        <li class="fragment" data-fragment-index="2">Handle with command bus</li>
+        <li class="fragment" data-fragment-index="3">Separate read model from write model</li>
+        <li class="fragment" data-fragment-index="4">Domain triggers events</li>
+        <li class="fragment" data-fragment-index="5">Projectors receive events and update read model</li>
+    </ul>
+</section>
+
+<section>
+    <h2>Contact me</h2>
+    <p><a href="https://github.com/prolic" target="_blank">github.com/prolic</a></p>
+    <p><a href="https://twitter.com/sasaprolic" target="_blank">Twitter</a></p>
+    <p><a href="https://gitter.im/prooph/improoph" target="_blank">Prooph Gitter Chat</a></p>
+</section>
+
+<section>
+    <h2>Thank you!</h2>
+</section>
+
+</div>
+</div>
+
+<script src="bower_components/reveal.js/lib/js/head.min.js"></script>
+<script src="bower_components/reveal.js/js/reveal.min.js"></script>
+<script>
+    // Configure Reveal
+    // Full list of configuration options available here:
+    // https://github.com/hakimel/reveal.js#configuration
+    Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+
+        theme: Reveal.getQueryHash().theme || 'sky', // available themes are in /css/theme
+        transition: Reveal.getQueryHash().transition || 'none', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+            { src: 'bower_components/reveal.js/lib/js/classList.js', condition: function() { return !document.body.classList; } },
+            { src: 'bower_components/reveal.js/plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+            { src: 'bower_components/reveal.js/plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+            { src: 'bower_components/reveal.js/plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+            { src: 'bower_components/reveal.js/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+            { src: 'bower_components/reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+            // { src: 'plugin/search/search.js', async: true, condition: function() { return !!document.body.classList; } }
+            //{ src: 'bower_components/reveal.js/plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+
+            { src: 'js/loadhtmlslides.js', condition: function() { return !!document.querySelector( '[data-html]' ); } }
+        ]
+    });
+</script>
+
+<script type="text/javascript">
+
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-15310667-1']);
+    _gaq.push(['_setDomainName', 'marco-pivetta.com']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+
+</script>
+
+</body>
+</html>
