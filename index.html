@@ -259,8 +259,9 @@ $commandBus->dispatch($command);</code></pre>
     <pre><code class="php">final class Todo extends AggregateRoot {
     // ...
 
-    protected function whenTodoWasMarkedAsDone(TodoWasMarkedAsDone $event)
-    {
+    protected function whenTodoWasMarkedAsDone(
+        TodoWasMarkedAsDone $event
+    ) {
         $this->status = $event->newStatus();
     }
 }</code></pre>
@@ -316,7 +317,9 @@ $commandBus->dispatch($command);</code></pre>
     <pre><code class="php">abstract class AggregateRoot {
     // ...
 
-    protected static function reconstituteFromHistory(\Iterator $historyEvents) {
+    protected static function reconstituteFromHistory(
+        \Iterator $historyEvents
+    ) {
         $instance = new static();
         $instance->replay($historyEvents);
         return $instance;
@@ -392,7 +395,7 @@ $eventStore->commit();</code></pre>
 </section>
 
 <section>
-    <h2>Event-Sourcing Pros</h2>
+    <h2>Event-Sourcing Cons</h2>
     <p class="fragment" data-fragment-index="1">Not really</p>
     <p class="fragment" data-fragment-index="2">Overkill for simple CRUD apps</p>
 </section>
